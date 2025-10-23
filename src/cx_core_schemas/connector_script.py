@@ -198,14 +198,14 @@ class AssetPatchBlockAction(BaseAction):
 
 class PublishAction(BaseAction):
     action: Literal["publish"]
-    input_data: Any = Field(
-        ..., description="The data to be rendered, from a previous step."
+    # Make this field optional. The engine will supply it from the pipeline.
+    input_data: Optional[Any] = Field(
+        None, description="The data to be rendered, from a previous step."
     )
     to: str = Field(
         ..., description="The target format (e.g., 'html', 'pdf', 'excel')."
     )
     output: str = Field(..., description="The output file path.")
-    # Use a generic dict to pass any other parameters to the renderer
     params: Dict[str, Any] = Field(default_factory=dict)
 
 
