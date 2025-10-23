@@ -179,6 +179,36 @@ class BrowserGetLocalStorageAction(BaseAction):
     action: Literal["browser_get_local_storage"]
 
 
+class AssetReadBlockAction(BaseAction):
+    action: Literal["asset.read_block"]
+    notebook_id: str
+    block_id: str
+    mode: Literal["raw_text", "parse_yaml", "parse_json"] = "raw_text"
+
+
+class AssetPatchBlockAction(BaseAction):
+    action: Literal["asset.patch_block"]
+    notebook_id: str
+    block_id: str
+    target_path: str
+    source_data: Any
+    source_path_key: str
+    value_map: Dict[str, str]
+
+
+class PublishAction(BaseAction):
+    action: Literal["publish"]
+    input_data: Any = Field(
+        ..., description="The data to be rendered, from a previous step."
+    )
+    to: str = Field(
+        ..., description="The target format (e.g., 'html', 'pdf', 'excel')."
+    )
+    output: str = Field(..., description="The output file path.")
+    # Use a generic dict to pass any other parameters to the renderer
+    params: Dict[str, Any] = Field(default_factory=dict)
+
+
 # --- Discriminated Union of ALL Possible Actions ---
 # Pydantic uses this to determine which model to validate based on the 'action' field.
 AnyConnectorAction = Union[
@@ -201,6 +231,9 @@ AnyConnectorAction = Union[
     # multi steps flows and actions
     RunMultiQueryAction,
     RunFlowAction,
+    AssetReadBlockAction,
+    AssetPatchBlockAction,
+    PublishAction,
 ]
 
 
