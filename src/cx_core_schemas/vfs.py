@@ -62,18 +62,23 @@ class StepResult(BaseModel):
     step_id: str
     status: str  # "completed", "failed", "skipped"
     summary: str
+    duration_ms: int = Field(
+        0, description="Execution time in milliseconds."
+    )  # ADD THIS
     cache_key: str
     cache_hit: bool
-    output_hash: Optional[str] = None  # SHA256 hash of the raw data output
+    output_hash: Optional[str] = None
 
 
 class Artifact(BaseModel):
     """Metadata for a single artifact produced by a run."""
 
-    content_hash: str  # SHA256 hash pointing to the data in the cache
+    content_hash: str
     mime_type: str
     size_bytes: int
     tags: Dict[str, Any] = Field(default_factory=dict)
+    # The 'type' field is a good idea for the future, but not strictly needed for this UI.
+    # We will omit it for now to keep the change minimal.
 
 
 class RunManifest(BaseModel):
@@ -83,6 +88,9 @@ class RunManifest(BaseModel):
     flow_id: str
     status: str
     timestamp_utc: datetime
+    duration_total_ms: int = Field(
+        0, description="Total runtime for the whole flow in milliseconds."
+    )  # ADD THIS
     parameters: Dict[str, Any]
     steps: List[StepResult]
     artifacts: Dict[str, Artifact] = Field(default_factory=dict)
