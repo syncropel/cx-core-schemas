@@ -59,7 +59,7 @@ class VfsFileContentResponse(BaseModel):
 class StepResult(BaseModel):
     """A record of a single step's execution within a run."""
 
-    step_id: str
+    id: str = Field(..., alias="step_id")
     status: str  # "completed", "failed", "skipped"
     summary: str
     duration_ms: int = Field(
@@ -69,6 +69,9 @@ class StepResult(BaseModel):
     cache_hit: bool
     output_hash: Optional[str] = None
 
+    class Config:
+        populate_by_name = True  # Allows using both 'id' and 'step_id'
+
 
 class Artifact(BaseModel):
     """Metadata for a single artifact produced by a run."""
@@ -77,8 +80,9 @@ class Artifact(BaseModel):
     mime_type: str
     size_bytes: int
     tags: Dict[str, Any] = Field(default_factory=dict)
-    # The 'type' field is a good idea for the future, but not strictly needed for this UI.
-    # We will omit it for now to keep the change minimal.
+    type: str = Field(
+        "primary_output", description="The semantic type of the artifact."
+    )
 
 
 class RunManifest(BaseModel):
