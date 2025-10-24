@@ -198,15 +198,31 @@ class AssetPatchBlockAction(BaseAction):
 
 class PublishAction(BaseAction):
     action: Literal["publish"]
-    # Make this field optional. The engine will supply it from the pipeline.
+    source: Literal["data", "notebook"] = Field(
+        "data",
+        description="Specifies what is being published: 'data' from a pipeline or a full 'notebook'.",
+    )
+    name: Optional[str] = Field(
+        None,
+        description="The logical ID of the notebook to publish. Required when source is 'notebook'.",
+    )
     input_data: Optional[Any] = Field(
-        None, description="The data to be rendered, from a previous step."
+        None,
+        description="The data to be rendered, typically from a previous step. Used when source is 'data'.",
     )
-    to: str = Field(
-        ..., description="The target format (e.g., 'html', 'pdf', 'excel')."
+
+    to: Optional[str] = Field(
+        None,
+        description="The target format (e.g., 'html', 'excel'). If omitted, it will be inferred from the output file extension.",
     )
-    output: str = Field(..., description="The output file path.")
-    params: Dict[str, Any] = Field(default_factory=dict)
+    output: Optional[str] = Field(
+        None,
+        description="The output file path. If omitted for a notebook, a default will be generated.",
+    )
+
+    params: Dict[str, Any] = Field(
+        default_factory=dict, description="Parameters to pass to the renderer."
+    )
 
 
 # --- Discriminated Union of ALL Possible Actions ---
