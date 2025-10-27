@@ -59,7 +59,7 @@ class VfsFileContentResponse(BaseModel):
 class StepResult(BaseModel):
     """A record of a single step's execution within a run."""
 
-    id: str = Field(..., alias="step_id")
+    step_id: str = Field(..., alias="step_id")
     status: str  # "completed", "failed", "skipped"
     summary: str
     duration_ms: int = Field(
