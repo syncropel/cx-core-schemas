@@ -3,9 +3,9 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cx-core-schemas"
-version = "0.2.0"
-description = "Core Pydantic data schemas and contracts for the Syncropel platform. This repository serves as the single source of truth for all shared data structures, including Blueprints, Connections, and Flows."
+name = "cx-kit"
+version = "0.3.0" # Version bumped to reflect the new SDK architecture
+description = "The official SDK for the Syncropel platform. Provides core contracts, schemas, and utilities for building capabilities and integrations."
 authors = [
     { name = "Syncropel", email = "dev@syncropel.com" },
 ]
@@ -17,8 +17,13 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
+# These are the lightweight dependencies required by the schemas and utilities themselves.
 dependencies = [
-    "pydantic>=2.0,<3.0"
+    "pydantic>=2.0,<3.0",
+    "networkx>=3.0",    # For orchestration utils
+    "jinja2>=3.1.0",    # For templating utils
+    "structlog>=24.1.0",  # For observability toolkit
+    "pyyaml>=6.0",      # For parsing yaml in various components
 ]
 
 [tool.setuptools.packages.find]
