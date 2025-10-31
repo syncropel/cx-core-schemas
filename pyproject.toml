@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cx-kit"
-version = "0.3.0" # Version bumped to reflect the new SDK architecture
+version = "0.3.1" # Version bumped to reflect the new SDK architecture
 description = "The official SDK for the Syncropel platform. Provides core contracts, schemas, and utilities for building capabilities and integrations."
 authors = [
     { name = "Syncropel", email = "dev@syncropel.com" },
