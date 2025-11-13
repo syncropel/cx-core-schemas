@@ -4,44 +4,22 @@
 Defines the contracts for the Interception & Extension Protocol (IEP).
 
 These abstract base classes allow developers to build plugins that hook into
-the lifecycle of workflow and step execution, enabling cross-cutting concerns
-like security, auditing, and caching.
+the execution lifecycle of the native CXQL runtime.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Awaitable, Callable, ClassVar, TYPE_CHECKING
+from typing import Awaitable, Callable, ClassVar, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..schemas.context import RunContext
-    from ..schemas.workflow import ContextualPage, WorkflowStep
+    from ..schemas.document import CodeBlock
+    from ..schemas.results import BlockResult
 
 
-class BaseWorkflowInterceptor(ABC):
+class BaseBlockInterceptor(ABC):  # <-- RENAMED for clarity
     """
-    The contract for a plugin that intercepts an ENTIRE workflow run.
-    This is the highest level of computational interception.
-    """
-
-    priority: ClassVar[int] = 100
-
-    @abstractmethod
-    async def intercept(
-        self,
-        context: "RunContext",
-        page: "ContextualPage",
-        next_handler: Callable[[], Awaitable[Any]],
-    ) -> Any:
-        """
-        Intercepts a full workflow run. Must call `await next_handler()`
-        to proceed with the actual execution.
-        """
-        raise NotImplementedError
-
-
-class BaseWorkflowStepInterceptor(ABC):
-    """
-    The contract for a plugin that intercepts a SINGLE workflow step's execution.
-    This is the granular, step-by-step control point.
+    The contract for a plugin that intercepts a SINGLE code block's execution
+    in the native CXQL runtime.
     """
 
     priority: ClassVar[int] = 100
@@ -50,11 +28,15 @@ class BaseWorkflowStepInterceptor(ABC):
     async def intercept(
         self,
         context: "RunContext",
-        step: "WorkflowStep",
-        next_handler: Callable[[], Awaitable[Any]],
-    ) -> Any:
+        block: "CodeBlock",  # <-- Pass the CodeBlock model
+        script_text: str,  # <-- Pass the raw script text
+        is_preamble: bool,  # <-- Pass execution context
+        next_handler: Callable[
+            [], Awaitable["BlockResult"]
+        ],  # <-- next() returns a BlockResult
+    ) -> "BlockResult":
         """
-        Intercepts a workflow step execution. Must call `await next_handler()`
+        Intercepts a code block execution. Must call `await next_handler()`
         to proceed down the chain.
         """
         raise NotImplementedError

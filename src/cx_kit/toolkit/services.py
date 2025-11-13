@@ -19,6 +19,28 @@ if TYPE_CHECKING:
     from ..schemas.workflow import WorkflowStep
 
 
+class ConfigManager(Protocol):
+    """
+    An interface to the platform's central, hierarchical configuration service.
+    """
+
+    def get_config(self) -> "BaseModel":
+        """Returns the fully resolved, merged, and validated configuration object."""
+        ...
+
+
+class HistoryManager(Protocol):
+    """
+    An interface to the service that queries the historical record of runs.
+    """
+
+    def query_recent_runs(
+        self, limit: int = 100, filters: Dict | None = None
+    ) -> List[Dict]:
+        """Queries for a summary of the most recent computational runs."""
+        ...
+
+
 class LlmService(Protocol):
     """
     An interface to the platform's centrally-managed Large Language Model client.
@@ -102,3 +124,20 @@ class WorkflowService(Protocol):
         Requests that the orchestrator execute a dynamically constructed step.
         """
         ...
+
+
+class ServiceRegistry(Protocol):
+    """
+    An interface representing the dependency injection container provided to capabilities.
+    Capabilities should type-hint against this protocol.
+    """
+
+    config_manager: ConfigManager
+    history_manager: HistoryManager
+    # Add other core services that capabilities might need
+    vfs_service: VfsService
+    secret_service: SecretService
+    llm_service: LlmService
+    workflow_engine: (
+        Any  # Keep this as 'Any' to avoid deep coupling to engine specifics
+    )

@@ -3,59 +3,43 @@
 """
 Provides the observability toolkit for the cx-kit SDK.
 
-This module contains helpers that enable capability developers to easily
-produce structured, context-aware logs that integrate seamlessly with the
-Syncropel platform's observability stack.
+This module contains the `get_logger` helper, which is the mandatory entry
+point for obtaining a context-aware, structured logger anywhere in the system.
 """
 
-from typing import TYPE_CHECKING
 import structlog
+from typing import TYPE_CHECKING, Optional
 
-# Use TYPE_CHECKING to avoid runtime circular dependencies while providing type hints.
 if TYPE_CHECKING:
     from ..schemas.context import RunContext
-    from ..schemas.workflow import WorkflowStep
 
 
-def get_logger(context: "RunContext", step: "WorkflowStep", **kwargs):
+def get_logger(context: "RunContext", block_id: Optional[str] = None, **kwargs):
     """
-    Returns a pre-configured `structlog` logger that is automatically bound
-    with essential trace information from the current execution context.
+    Returns a structlog logger pre-bound with critical trace information.
 
-    By using this helper, logs generated from any capability will be
-    automatically correlated with the specific run, flow, and step that
-    produced them, enabling powerful, targeted debugging and analysis.
+    This is the canonical way for any component in the system to obtain a logger.
+    It automatically binds the `run_id` from the context. The `block_id` is an
+    explicit optional argument, allowing components to add block-level context
+    only when it's available and relevant.
 
     Args:
-        context: The `RunContext` for the current step execution.
-        step: The `WorkflowStep` object being executed.
-        **kwargs: Additional key-value pairs to bind to the logger context.
+        context: The current `RunContext` for the execution.
+        block_id: (Optional) The ID of the code block being executed.
+        **kwargs: Additional key-value pairs to bind to the logger.
 
     Returns:
-        A bound structlog logger instance.
-
-    Example:
-        ```python
-        # Inside a Capability's execute_function method:
-        from cx_kit.toolkit.observability import get_logger
-
-        async def execute_function(self, function_name, context, parameters):
-            log = get_logger(context, step, capability_id=self.capability_id)
-
-            log.info("Starting API call.", target_url=url)
-            # ... do work ...
-            log.info("API call successful.", record_count=100)
-        ```
+        A pre-bound structlog logger instance.
     """
-    # Get the base logger for the application.
-    base_logger = structlog.get_logger()
+    if not hasattr(context, "run_id"):
+        # This is a safeguard against malformed or incomplete context objects.
+        return structlog.get_logger().bind(**kwargs)
 
-    # Bind the essential context for tracing and observability.
-    return base_logger.bind(
-        run_id=context.run_id,
-        flow_id=context.flow_id,
-        step_id=step.id,
-        capability_id=step.engine
-        or (step.run.get("action") if step.run else "unknown"),
-        **kwargs,
-    )
+    bindings = {"run_id": context.run_id}
+
+    # The block_id is now an explicit parameter, not an assumed attribute of the context.
+    # This decouples the logger from the specific shape of the RunContext model.
+    if block_id:
+        bindings["block_id"] = block_id
+
+    return structlog.get_logger().bind(**bindings, **kwargs)

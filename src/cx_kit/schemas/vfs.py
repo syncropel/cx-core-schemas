@@ -5,7 +5,7 @@ Defines the Pydantic models related to the Virtual File System (VFS)
 and the structure of the final, auditable Run Manifest.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict  # <-- MODIFIED: Import ConfigDict
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
@@ -21,7 +21,7 @@ class VfsReference(BaseModel):
 
     uri: str = Field(
         ...,
-        description="The full, unique URI of the artifact in the VFS, e.g., 'vfs://s3-bucket/path/to/data.parquet'.",
+        description="The full, unique URI of the artifact in the VFS, e.g., 's3://bucket/path/data.parquet'.",
     )
     schema_definition: Optional[Dict[str, Any]] = Field(
         None,
@@ -35,42 +35,43 @@ class VfsReference(BaseModel):
         None, description="The size of the artifact in bytes."
     )
 
-    class Config:
-        populate_by_name = True
+    # --- MODIFICATION START ---
+    # Replaced the deprecated `class Config` with `model_config`.
+    model_config = ConfigDict(populate_by_name=True)
+    # --- MODIFICATION END ---
 
 
 class ManifestStepResult(BaseModel):
     """
+
     A record of a single step's execution, specifically for serialization
     within the final RunManifest. It's a subset of the in-memory StepResult.
     """
 
     step_id: str
     status: str = Field(
-        ...,
-        description="The final status of the step: 'completed', 'failed', or 'skipped'.",
+        ..., description="The final status: 'success', 'failed', or 'skipped'."
     )
-    summary: str = Field(..., description="A human-readable summary of the outcome.")
+    summary: Optional[str] = Field(
+        None, description="A human-readable summary of the outcome."
+    )
     duration_ms: int = Field(..., description="Execution time in milliseconds.")
-    cache_key: str = Field(
-        ..., description="The deterministic cache key calculated for this step."
+    cache_key: Optional[str] = Field(
+        None, description="The deterministic cache key calculated for this step."
     )
-    cache_hit: bool = Field(
-        ..., description="Whether the result was retrieved from the cache."
+    cache_hit: Optional[bool] = Field(
+        None, description="Whether the result was retrieved from the cache."
     )
     output_hash: Optional[str] = Field(
-        None,
-        description="A content hash of the step's primary `data` output, pointing to an object in the CAS cache.",
+        None, description="A content hash of the step's primary `data` output."
     )
 
 
 class ManifestArtifact(BaseModel):
     """Metadata for a single artifact produced by a run, for the RunManifest."""
 
-    content_hash: str = Field(
-        ..., description="The content hash of the artifact file in the CAS cache."
-    )
-    mime_type: str
+    content_hash: str = Field(..., description="The content hash of the artifact file.")
+    mime_type: Optional[str] = None
     size_bytes: int
     type: str = Field(
         "primary_output", description="The semantic type of the artifact."
@@ -87,19 +88,12 @@ class RunManifest(BaseModel):
     run_id: str
     flow_id: str
     status: str = Field(
-        ..., description="The final status of the entire run: 'completed' or 'failed'."
+        ..., description="The final status of the entire run: 'success' or 'failed'."
     )
-    timestamp_utc: datetime = Field(
-        ..., description="The UTC timestamp when the run was initiated."
-    )
-    duration_total_ms: int = Field(
-        ..., description="Total runtime for the whole workflow in milliseconds."
-    )
+    timestamp_utc: datetime
+    duration_total_ms: int
     parameters: Dict[str, Any] = Field(
         ..., description="The input parameters provided for this run."
     )
     steps: List[ManifestStepResult]
-    artifacts: Dict[str, ManifestArtifact] = Field(
-        default_factory=dict,
-        description="A dictionary mapping a user-friendly artifact name (e.g., 'sales_report.xlsx') to its metadata.",
-    )
+    artifacts: Dict[str, ManifestArtifact] = Field(default_factory=dict)

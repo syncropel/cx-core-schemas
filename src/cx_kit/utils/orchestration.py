@@ -15,6 +15,7 @@ from typing import Dict, List, TYPE_CHECKING
 if TYPE_CHECKING:
     from ..schemas.workflow import WorkflowStep
     from networkx import DiGraph
+    from ..schemas.project import Block
 
 
 def build_dependency_graph(steps: List["WorkflowStep"]) -> "DiGraph":
@@ -73,35 +74,42 @@ def build_dependency_graph(steps: List["WorkflowStep"]) -> "DiGraph":
     return dag
 
 
-def calculate_cache_key(step: "WorkflowStep", parent_hashes: Dict[str, str]) -> str:
+def calculate_cache_key(
+    rendered_block: "Block", capability_version: str, parent_hashes: Dict[str, str]
+) -> str:
     """
     Calculates a deterministic, content-addressable cache key (SHA256) for a
-    workflow step based on its definition and the content hashes of its parents.
-
-    This ensures that a step is only re-executed if its own definition or the
-    output of any of its direct dependencies has changed, enabling perfect,
-    automatic incremental computation.
-
-    Args:
-        step: The `WorkflowStep` object to be hashed.
-        parent_hashes: A dictionary mapping the step IDs of all parent steps
-                       to their `output_hash`.
-
-    Returns:
-        A string representing the SHA256 cache key, prefixed with "sha256:".
+    block based on its fully rendered semantic content, the version of the
+    capability that will execute it, and the content hashes of its parents.
     """
     hasher = hashlib.sha256()
 
-    # Use by_alias=True to get 'if' instead of 'if_condition' for determinism
-    # and exclude_none=True to keep the hash stable if optional fields are absent.
-    step_def_dict = step.model_dump(by_alias=True, exclude_none=True)
-    step_def_str = json.dumps(step_def_dict, sort_keys=True)
-    hasher.update(step_def_str.encode("utf-8"))
+    # 1. Define the complete set of fields that constitute the semantic identity.
+    semantic_fields = {
+        "engine",
+        "connection",
+        "run",
+        "content",
+        "inputs",
+        "outputs",
+        "if_condition",
+    }
 
-    # Include parent hashes in a deterministic order to ensure the full
-    # lineage is part of the key.
-    sorted_parent_hashes = sorted(parent_hashes.items())
-    for step_id, hash_val in sorted_parent_hashes:
-        hasher.update(f"{step_id}:{hash_val or ''}".encode("utf-8"))
+    # 2. Create a dictionary with only these fields from the *rendered* block.
+    block_dict = rendered_block.model_dump(by_alias=True)
+    semantic_dict = {
+        k: block_dict.get(k) for k in semantic_fields if block_dict.get(k) is not None
+    }
+
+    # 3. Serialize and hash this semantic dictionary.
+    semantic_str = json.dumps(semantic_dict, sort_keys=True)
+    hasher.update(semantic_str.encode("utf-8"))
+
+    # 4. CRITICAL: Include the capability's version in the hash.
+    hasher.update(capability_version.encode("utf-8"))
+
+    # 5. Include parent hashes to ensure full data lineage affects the key.
+    for block_id, hash_val in sorted(parent_hashes.items()):
+        hasher.update(f"{block_id}:{hash_val or ''}".encode("utf-8"))
 
     return f"sha256:{hasher.hexdigest()}"

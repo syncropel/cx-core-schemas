@@ -8,8 +8,8 @@ its perception of available tools (FunctionSignature), its intentions (ToolCall)
 and its observations.
 """
 
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Any, Dict, List, Literal, Type, Union
+from pydantic import BaseModel, Field, ConfigDict  # <-- MODIFIED: Import ConfigDict
+from typing import Any, Dict, List, Literal, Optional, Type, Union
 
 
 class FunctionSignature(BaseModel):
@@ -20,17 +20,28 @@ class FunctionSignature(BaseModel):
 
     name: str = Field(
         ...,
-        description="The unique, namespaced function name, e.g., 'syncropel:git.clone_repo'.",
+        description="The unique, namespaced function name, e.g., 'system:fs.read'.",
     )
     description: str = Field(
         ...,
         description="A clear, natural language description of what the function does, intended for an LLM.",
     )
-    parameters: Type[BaseModel] = Field(
+    input_schema: Type[BaseModel] = Field(
         ...,
-        description="A Pydantic model class defining the function's arguments, which will be converted to a JSON Schema for the LLM.",
+        alias="parameters",
+        description="A Pydantic model defining the function's input arguments.",
     )
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    output_schema: Optional[Type[BaseModel]] = Field(
+        None,
+        description="An optional Pydantic model describing the function's output.",
+    )
+
+    # --- MODIFICATION START ---
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,  # Necessary to allow `Type[BaseModel]`
+        populate_by_name=True,  # Allows 'parameters' to populate 'input_schema'
+    )
+    # --- MODIFICATION END ---
 
 
 class ToolCall(BaseModel):
@@ -58,18 +69,9 @@ class Observation(BaseModel):
 
 class Beliefs(BaseModel):
     """
-    The generic, in-memory 'working memory' or state of an agentic process.
-    This flexible structure can support various reasoning models.
+    The in-memory 'working memory' or state of an agentic process.
     """
 
     initial_goal: str
-
-    # The history is a chronological log of thoughts, tool calls, and observations,
-    # forming the agent's short-term memory for a given task.
     history: List[Union[Message, Observation, ToolCall]] = Field(default_factory=list)
-
-    # A generic key-value store for structured data extracted during the process.
-    facts: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Structured facts discovered during the process, used for long-term reasoning.",
-    )
+    facts: Dict[str, Any] = Field(default_factory=dict)
