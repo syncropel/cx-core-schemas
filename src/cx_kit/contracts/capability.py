@@ -53,6 +53,15 @@ class BaseCapability(ABC):
         """
         raise NotImplementedError
 
+    async def shutdown(self):
+        """
+        A lifecycle hook called by the engine during a graceful shutdown.
+        Capabilities should use this to close network connections,
+        clean up temporary files, or release other resources.
+        """
+        # The default implementation does nothing.
+        pass
+
 
 class BaseStatefulSessionCapability(BaseCapability):
     """

@@ -1,12 +1,5 @@
 # cx-kit/src/cx_kit/toolkit/observability.py
 
-"""
-Provides the observability toolkit for the cx-kit SDK.
-
-This module contains the `get_logger` helper, which is the mandatory entry
-point for obtaining a context-aware, structured logger anywhere in the system.
-"""
-
 import structlog
 from typing import TYPE_CHECKING, Optional
 
@@ -14,32 +7,29 @@ if TYPE_CHECKING:
     from ..schemas.context import RunContext
 
 
-def get_logger(context: "RunContext", block_id: Optional[str] = None, **kwargs):
+def get_logger(context: Optional["RunContext"] = None, **kwargs):
     """
-    Returns a structlog logger pre-bound with critical trace information.
+    Returns a structlog logger pre-bound with critical trace information if available.
 
-    This is the canonical way for any component in the system to obtain a logger.
-    It automatically binds the `run_id` from the context. The `block_id` is an
-    explicit optional argument, allowing components to add block-level context
-    only when it's available and relevant.
-
-    Args:
-        context: The current `RunContext` for the execution.
-        block_id: (Optional) The ID of the code block being executed.
-        **kwargs: Additional key-value pairs to bind to the logger.
-
-    Returns:
-        A pre-bound structlog logger instance.
+    This is the canonical way for any component to obtain a logger. It is now safe
+    to call even without a RunContext (e.g., during startup or discovery), in
+    which case it returns a logger bound only with the provided kwargs.
     """
-    if not hasattr(context, "run_id"):
-        # This is a safeguard against malformed or incomplete context objects.
-        return structlog.get_logger().bind(**kwargs)
+    # Start with a base logger instance
+    log = structlog.get_logger()
 
-    bindings = {"run_id": context.run_id}
+    # Bind context-specific fields ONLY if a valid context is provided.
+    if context and hasattr(context, "run_id"):
+        bindings = {"run_id": context.run_id}
 
-    # The block_id is now an explicit parameter, not an assumed attribute of the context.
-    # This decouples the logger from the specific shape of the RunContext model.
-    if block_id:
-        bindings["block_id"] = block_id
+        # You can add more context bindings here if needed in the future
+        # e.g., if hasattr(context, "current_block") and context.current_block:
+        #    bindings["block_id"] = context.current_block.id
 
-    return structlog.get_logger().bind(**bindings, **kwargs)
+        log = log.bind(**bindings)
+
+    # Always bind any additional kwargs provided by the caller.
+    if kwargs:
+        log = log.bind(**kwargs)
+
+    return log

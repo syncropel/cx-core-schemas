@@ -10,6 +10,9 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import Any, Dict, Optional, TYPE_CHECKING
 from pathlib import Path
 
+# Import the new ConnectionSpec for type hinting
+from .connection import ConnectionSpec
+
 if TYPE_CHECKING:
     from ..toolkit.services import VfsService, SecretService, LlmService
 
@@ -33,57 +36,62 @@ class RunContext(BaseModel):
     current_flow_path: Optional[Path] = None
 
     # State & Scope
-    variables: Dict[str, Any] = Field(default_factory=dict)
-    connections: Dict[str, Any] = Field(default_factory=dict)
+    variables: Dict[str, Any] = Field(
+        default_factory=dict, description="The current variable scope."
+    )
+    connections: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="A cache of initialized singleton capability instances.",
+    )
+
+    # This field holds the specific connection details for the *current* stateful function call.
+    # It is excluded from serialization as it is a short-lived, runtime-only object.
+    active_connection: Optional[ConnectionSpec] = Field(None, exclude=True)
 
     # Injected SDK Services (transient, not part of the serialized model)
     vfs: "VfsService" = Field(exclude=True)
     secrets: "SecretService" = Field(exclude=True)
     llm: "LlmService" = Field(exclude=True)
 
-    # --- MODIFICATION START ---
-    # 1. REMOVED: The obsolete `current_block` field has been deleted.
-    #    It was a remnant of the old DAG engine's context model.
-
-    # 2. UPDATED: Switched from deprecated `class Config` to `model_config`.
-    #    This aligns with Pydantic v2+ best practices.
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
-    # --- MODIFICATION END ---
 
     def with_updates(
         self,
         new_variables: Optional[Dict[str, Any]] = None,
-        new_connections: Optional[Dict[str, Any]] = None,
+        active_connection: Optional[ConnectionSpec] = None,
     ) -> "RunContext":
         """
         Returns a NEW, updated RunContext instance. This is the primary method for
         propagating state changes immutably.
-        """
 
-        # Use a dictionary for updates to avoid deepcopying the entire model.
+        The Evaluator uses this to create a short-lived context with an
+        `active_connection` for a single stateful function call.
+        """
         update_dict = {}
 
         if new_variables:
-            # Create a new merged dictionary for variables.
             updated_vars = self.variables.copy()
             updated_vars.update(new_variables)
             update_dict["variables"] = updated_vars
 
-        if new_connections:
-            # Create a new merged dictionary for connections.
-            updated_conns = self.connections.copy()
-            updated_conns.update(new_connections)
-            update_dict["connections"] = updated_conns
+        # --- THIS IS THE CRITICAL ADDITION ---
+        # Allow the `active_connection` to be set for the new context.
+        # Note: Pydantic's `model_copy` handles `None` correctly, so we can
+        # set it directly.
+        if active_connection is not None:
+            update_dict["active_connection"] = active_connection
+
+        if not update_dict:
+            return self
 
         # `model_copy` is the idiomatic Pydantic v2 method for creating a new
         # instance with updated fields while preserving immutability.
-        if not update_dict:
-            return self  # Return self if no updates are made.
-
         return self.model_copy(update=update_dict)
 
     def resolve_path(self, path_str: str) -> Path:
         """
         Resolves a VFS path string using the full context of the current running flow.
         """
+        # Delegate path resolution to the VFS service, providing it with the
+        # necessary context from this RunContext instance.
         return self.vfs.resolve_path(path_str, relative_to=self.current_flow_path)
